@@ -7,7 +7,7 @@ library(survival)
 library(survminer)
 library(survivalAnalysis)
 library(phenoTest)
-rppa_data <- read.table("/Users/nnarayanan/Library/CloudStorage/OneDrive-InsideMDAnderson/NishaNarayanan/ASNS/Code/Data/RPPA_Data.csv", sep = "\t")
+rppa_data <- read.table("RPPA_Data.csv", sep = "\t")
 rppa_data$poi_median <- factor(rppa_data$poi_median, levels = c("LowASNS", "HighASNS"))
 rppa_data$poi_tertile <- factor(rppa_data$poi_tertile, levels = c("LowASNS", "MediumASNS","HighASNS"))
 rppa_data$poi_quartile <- factor(rppa_data$poi_quartile, levels = c("Q1", "Q2", "Q3", "Q4"))
@@ -27,20 +27,20 @@ fit_ven <- survfit(Surv(OS_2year, OS_Status) ~ low, data = rppa_data)
 cox_ven <- coxph(Surv(OS_2year, OS_Status) ~ low, data = rppa_data)
 fit_ven_high <- survfit(Surv(OS_2year, OS_Status) ~ high, data = rppa_data)
 cox_ven_high <- coxph(Surv(OS_2year, OS_Status) ~ high, data = rppa_data)
-pdf("/Users/nnarayanan/Library/CloudStorage/OneDrive-InsideMDAnderson/NishaNarayanan/ASNS/Figures/Figure 3c.pdf", width = 8)
+pdf("Figure 3c.pdf", width = 8)
 ggsurvplot(fit_ven_high, data=rppa_data, pval=T,palette = c("red3", "steelblue4"),
            legend.labs = c("No", "Yes"),xlab= "Survival Time (years)",ylab = "Overall Survival Probability",
            legend=c(0.9,0.9), pval.coord = c(0.1,0.05),legend.title="Venetoclax", 
            title="Venetoclax Survival Curve of High ASNS Patients", conf.int = FALSE,
            risk.table = TRUE) 
 dev.off()
-pdf("/Users/nnarayanan/Library/CloudStorage/OneDrive-InsideMDAnderson/NishaNarayanan/ASNS/Figures/Figure S4a.pdf", width = 8)
+pdf("Figure S4a.pdf", width = 8)
 ggsurvplot(ven, data=rppa_data, pval=T, palette = c("red3", "steelblue4"),
            legend.labs = c("No", "Yes"), xlab= "Survival Time (years)",ylab = "Overall Survival Probability",
            legend=c(0.9,0.9), pval.coord = c(0.1,0.05),legend.title="Venetoclax", title="Venetoclax Survival Curve", conf.int = FALSE,
            risk.table = TRUE) 
 dev.off()
-pdf("/Users/nnarayanan/Library/CloudStorage/OneDrive-InsideMDAnderson/NishaNarayanan/ASNS/Figures/Figure S5a.pdf", width = 8)
+pdf("Figure S5a.pdf", width = 8)
 ggsurvplot(fit_ven, data=rppa_data, pval=T, palette = c("red3","steelblue4"),           
            legend.labs = c("No", "Yes"), xlab= "Survival Time (years)",ylab = "Overall Survival Probability",
           legend=c(0.9,0.9), pval.coord = c(0.1,0.05),legend.title="Venetoclax", title="Venetoclax Survival Curve of Low ASNS Patients", conf.int = FALSE,
@@ -83,7 +83,7 @@ result5 <- rppa_data %>%
   analyse_multivariate(vars(OS.Wks.SMK, status),
                        covariates = vars(Age.Dx, Cytogenetics.Risk.Group, low), covariate_name_dict = covariate_names_2)
 
-pdf("/Users/nnarayanan/Library/CloudStorage/OneDrive-InsideMDAnderson/NishaNarayanan/ASNS/Figures/Figure 3d.pdf")
+pdf("Figure 3d.pdf")
 forest_plot(result4,
             factor_labeller = covariate_names_2,
             endpoint_labeller = c(time="OS_Weeks"),
@@ -93,7 +93,7 @@ forest_plot(result4,
             relative_widths = c(1, 1.5, 1),
             HR_x_breaks = c(0.25, 0.5, 0.75, 1, 1.5, 2,3,4,5,7,9))
 dev.off()
-pdf("/Users/nnarayanan/Library/CloudStorage/OneDrive-InsideMDAnderson/NishaNarayanan/ASNS/Figures/Figure S4b.pdf")
+pdf("Figure S4b.pdf")
 forest_plot(result3,
             factor_labeller = covariate_names_0,
             endpoint_labeller = c(time="OS_Weeks"),
@@ -103,7 +103,7 @@ forest_plot(result3,
             relative_widths = c(1, 1.5, 1),
             HR_x_breaks = c(0.25, 0.5, 0.75, 1, 1.5, 2,3,4))
 dev.off()
-pdf("/Users/nnarayanan/Library/CloudStorage/OneDrive-InsideMDAnderson/NishaNarayanan/ASNS/Figures/Figure S5b.pdf")
+pdf("Figure S5b.pdf")
 forest_plot(result5,
             factor_labeller = covariate_names_2,
             endpoint_labeller = c(time="OS_Weeks"),
