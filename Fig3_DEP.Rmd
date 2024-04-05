@@ -1,0 +1,96 @@
+---
+title: "Differential enrichment analysis for proteins"
+output: html_document
+date: "2023-11-16"
+---
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(GSEABase)
+library(fgsea)
+library(ggpubr)
+```
+
+```{r}
+rppa_data <- read.table("/Users/nnarayanan/Library/CloudStorage/OneDrive-InsideMDAnderson/NishaNarayanan/ASNS/Code/Data/RPPA_Data.csv", sep = "\t")
+ptn_exp <- rppa_data[,609:1037]
+ptn_exp$asns_group <- rppa_data$poi_median
+ptn_exp_df <- ptn_exp %>% group_by(asns_group) %>% summarise(across(everything(), mean))
+ptn_exp_df <- as.data.frame(ptn_exp_df[,-1])
+rownames(ptn_exp_df) <- c("HighASNS", "LowASNS")
+ptn_exp_df <- as.data.frame(t(ptn_exp_df))
+#ptn_exp_df <- ptn_exp_df[!rownames(ptn_exp_df) %in% "ASNS",]
+p_val <- c()
+for (i in 1:429){
+  p_val[i] <- t.test(ptn_exp[[i]] ~ ptn_exp$asns_group)$p.value
+}
+p.adj <- p.adjust(p_val, method = "BH", n=length(p_val))
+```
+
+```{r}
+ptn_exp_df$logFC <- (ptn_exp_df$HighASNS - ptn_exp_df$LowASNS) #/ptn_exp_df$LowASNS 
+ptn_exp_df$pval <- p_val
+ptn_exp_df$padj <- p.adj
+fil_ptns <- ptn_exp_df %>% filter(padj <= 0.05)
+fil_ptns$sig <- ifelse(fil_ptns$logFC >=0, "Upregulated", "Downregulated")
+write.table(fil_ptns, "/Users/nnarayanan/Library/CloudStorage/OneDrive-InsideMDAnderson/NishaNarayanan/ASNS/Code/Figure 4/DEP.txt", row.names = TRUE, sep = "\t")
+posptn <- fil_ptns %>% filter(logFC>=0)
+negptn <- fil_ptns %>% filter(logFC<0)
+```
+
+```{r}
+ptn_exp_df$sig <- ifelse(ptn_exp_df$padj > 0.05, "NotSig", ifelse(ptn_exp_df$padj <= 0.05 & ptn_exp_df$logFC >=0, "Upregulated", "Downregulated"))
+ptn_exp_df$sig <- factor(ptn_exp_df$sig, levels = c("Upregulated", "Downregulated", "NotSig"))
+ptn_exp_df <- ptn_exp_df[!rownames(ptn_exp_df) %in% "ASNS",]
+pdf("/Users/nnarayanan/Library/CloudStorage/OneDrive-InsideMDAnderson/NishaNarayanan/ASNS/Code/Figure 4/VolcanoPlot.pdf")
+ggplot(data=ptn_exp_df, aes(x=logFC, y=-log10(padj), color = sig)) + 
+  scale_color_manual(name = "BH Significance",  labels = c("Upregulated", "Downregulated", "Not significant"),values = c("darkseagreen", "steelblue3", "lightgrey")) +
+  geom_point() +
+  ggplot2::labs(fill = "BH Significance") +
+  xlab("Log Fold Change") +
+  ylab("-Log10 adjusted P value") +
+  theme_classic()
+ dev.off() 
+```
+
+```{r, eval = FALSE}
+pos_ptn <- ptn_exp_df %>% filter(pval <= 0.05 & logFC >=1)
+neg_ptn <- ptn_exp_df %>% filter(pval <= 0.05 & logFC <=-1)
+rownames(pos_ptn)
+write.table(pos_ptn, "positive.txt", sep ="\t")
+write.table(neg_ptn, "negative.txt", sep ="\t")
+```
+
+```{r}
+fil_ptns<- ptn_exp_df # previous go was fil_ptns with padj <=0.05 from previous chunk as is. 
+fil_ptns=fil_ptns[order(fil_ptns$logFC,decreasing = T),]
+ranks <- setNames(fil_ptns$logFC, rownames(fil_ptns))
+geneset_go=fgsea::gmtPathways("/Users/nnarayanan/Downloads/c5.go.v7.5.1.symbols.gmt.txt")
+set.seed(7)
+fgseaRes_go <- fgsea(geneset_go, ranks, minSize=1, maxSize=500)
+library(data.table)
+fwrite(fgseaRes_go, file="fgsea.tsv", sep="\t", sep2=c("", " ", ""))
+go_by_padj0.25 <- fgseaRes_go %>% dplyr::filter(padj<=0.25)
+go_by_padj0.25$Direction <- ifelse(go_by_padj0.25$NES >=0, "Upregulated", "Downregulated")
+go_by_padj0.25$pathway <- gsub("GOBP_", "", go_by_padj0.25$pathway)
+go_by_padj0.25$pathway <- gsub("_", " ", go_by_padj0.25$pathway)
+fwrite(go_by_padj0.25, file="fgsea_top_.tsv", sep="\t", sep2=c("", " ", ""))
+```
+
+```{r}
+go_by_padj0.25 <- read.table("/Users/nnarayanan/Library/CloudStorage/OneDrive-InsideMDAnderson/NishaNarayanan/ASNS/Code/Figure 4/fgsea_top.tsv",  sep="\t",  header = TRUE)
+go_by_padj0.25$Direction <- factor(go_by_padj0.25$Direction, levels = c("Upregulated", "Downregulated"))
+pdf("/Users/nnarayanan/Library/CloudStorage/OneDrive-InsideMDAnderson/NishaNarayanan/ASNS/Figures/Figure 4b.pdf", width =8, height = 5)
+ggplot(go_by_padj0.25, aes(x = reorder(pathway, NES), y = NES, fill = Direction)) +
+  geom_col(position = "dodge", width = 0.5) +
+  scale_fill_manual( values=c("red3", "steelblue4")) +
+  theme_classic() +
+  coord_flip() +
+  ylab("Normalised Enrichment Score") +
+  xlab("GO Biological Processes")  +
+  theme(plot.caption = element_text(hjust = 1), legend.position = "none", axis.text.x = element_text(size=10, color = "black"), axis.text.y = element_text(size=8, color = "black")) +
+  labs(fill = "Regulation") 
+dev.off()
+```
+
