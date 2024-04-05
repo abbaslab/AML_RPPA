@@ -1,6 +1,6 @@
 library(dplyr)
 library(gtsummary)
-rppa_data <- read.table("/Users/nnarayanan/Library/CloudStorage/OneDrive-InsideMDAnderson/ASNS/RPPA_Data.csv", sep = "\t")
+rppa_data <- read.table("RPPA_Data.csv", sep = "\t")
 rppa_data$trisomy8 <- ifelse(is.na(rppa_data$trisomy8), NA, ifelse(rppa_data$trisomy8=="N", "No", "Trisomy8"))
 rppa_data$MD.SF3B1.mutated <- ifelse(rppa_data$MD.SF3B1 == "NA", NA, ifelse(rppa_data$MD.SF3B1=="N" | rppa_data$MD.SF3B1=="NEG", "N", "Y"))
 rppa_data$MD.DNMT3A.mutated <- ifelse(rppa_data$MD.DNMT3A == "NA", NA, ifelse(rppa_data$MD.DNMT3A=="N" | rppa_data$MD.DNMT3A=="NEG", "N", "Y"))
@@ -24,5 +24,5 @@ table1 <- tbl_summary(oncoprint, by = poi_median, type = all_dichotomous() ~ "ca
 modify_1 <- table1 %>% modify_caption("**Mutation characteristics of AML patients in the study set** (N = {N})")
 t1 <- add_q(modify_1, method = "fdr", pvalue_fun = NULL, quiet = NULL) %>% as_gt()
 
-gt::gtsave(t1, filename = "/Users/nnarayanan/Library/CloudStorage/OneDrive-InsideMDAnderson/NishaNarayanan/ASNS/Code/Table 2/Mutation_Table.docx") 
+gt::gtsave(t1, filename = "Mutation_Table.docx") 
 
