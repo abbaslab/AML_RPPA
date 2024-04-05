@@ -1,0 +1,370 @@
+---
+title: "RPPA Exploratory Analysis: ASNS"
+author: 'Nisha Narayanan (nnarayanan@mdanderson.org)'
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  html_document:
+    toc: true
+    toc_float: 
+        collapsed: true
+        smooth_scroll: true
+    depth: 3 
+    theme: flatly
+    highlight: pygments
+---
+***
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Packages
+
+Install the packages. Since the packages are already installed, chunk valuation is set to FALSE. Run manually if required. 
+```{r pkg, warning=FALSE, message=FALSE, eval=FALSE}
+install.packages("BiocManager")
+install.packages(c("ggplot2", "dplyr", "readxl", "xlsx"))
+install.packages("tidyr")
+install.packages("ggsurvfit")
+install.packages("tidycmprsk")
+install.packages("ggpubr")
+install.packages("gtsummary")
+BiocManager::install("phenoTest")
+install.packages("magrittr")
+install.packages("survivalAnalysis")
+```
+
+Load the libraries required for downstream analysis
+```{r lib, warning=FALSE, message=FALSE}
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(ggsurvfit)
+library(tidycmprsk)
+library(ggpubr)
+library(gtsummary)
+library(survival)
+library(phenoTest)
+library(survminer)
+library(survivalAnalysis)
+```
+
+## Data loading
+
+Load the data into the R environment. Accessing the excel sheet through the read_excel function in the readxl library.
+
+```{r data}
+rppa_data <- read_excel("/Users/nnarayanan/Library/CloudStorage/OneDrive-InsideMDAnderson/Data/RPPA/AML_A3_Patient-n810_Protein-n429_Data.xlsx") #Replace path to file with the actual path to the file in your machine
+```
+
+## Data cleaning
+
+This step focuses on cleaning the data for subsequent analysis. 
+1. The column names of some of the columns in the RPPA data needs to be changed for some reasons (like duplicated column names), rename them if it is going to be used in downstream analyses. 
+2. We also have a lot of NA data in the data frame which gets read as a character string in R, these values need to be changed to NA (missing value). Inspect the data frame and identify these columns of concerns.  
+3. For most of the statistical analysis and plots we need variables that are grouped together by factors. Identify these column numbers and convert them to factors using lapply.  
+
+```{r data_fil}
+#names(rppa_data)[23:26] <- c("Mono", "Blasts_Presence", "CD34", "CD14") #updating duplicate column names
+
+names <- c("Race.Dx", "FAB.Assigned", "Prior.Malignancy", "CNS.Leukemia", "TX1.BestResponse2", "Relapse", "WBC.hyper", "Complex.Karyotype", "MD.FLT3.ITD.mutated", "Cytogenetics.Risk.Group", "Cytogenetics.Cat.Summary", "Performance.Status", "MD.MLL_AF4.mutated", "MD.Risk.Group", "MD.CEBPA.mutated", "TX1.Remission", "PseudoFAB", "Prior.Chemo", "PseudoFAB", "MD.Risk.Group","TX1.Remission", "Performance.Status" ) # identify any or all such rows and store the column names in this variable
+for(i in names){
+  #print(i)
+  rppa_data[[i]] <- gsub("NA", NA, rppa_data[[i]]) #replacing NA character with NA
+}
+rppa_data$Cytogenetics.Risk.Group <- ifelse(rppa_data$Cytogenetics.Risk.Group=="U", "Unfavorable", ifelse(rppa_data$Cytogenetics.Risk.Group=="I", "Intermediate", ifelse(rppa_data$Cytogenetics.Risk.Group=="F", "Favorable", NA)))
+rppa_data[c(4, 6,7, 12:14,19:23,28,51,65,66,260, 262,376:401)] <- lapply(rppa_data[c(4,6,7, 12:14, 19:23, 28, 51, 65, 66, 260, 262,376:401)], factor) #Converting the columns of required data frame to factor variables
+```
+
+## Data Summary
+
+This table summarizes the demographic data of patients.
+
+```{r}
+tbl_summary(
+    rppa_data,
+    include = c(Age.Dx, Diagnosis, Race.Dx, FAB.Assigned),
+    by = Gender, # split table by group
+    missing = "ifany" # don't list missing data separately
+  ) %>%
+  add_n() %>% # add column with total number of non-missing observations
+  add_p() %>% # test for a difference between groups
+  modify_header(label = "**Variable**") %>% # update the column header
+  bold_labels()
+```
+
+
+## Boxplots 
+
+This section focuses on constructing box plots for the selected variables against the protein of interest. We also calculate the p-values using either t-test (<=2 groups) or one-way ANOVA (>2 groups). The same p-value will be printed on the plots. 
+
+This chunk calculates the p-value for all variables of interest
+
+```{r}
+## p-val helper function
+col_names <- colnames(rppa_data)[c(4, 6,7, 12:14,19:23,28,51,65,66,260, 262,376:401)] #select all the variables you want to explore
+poi <- "ASNS" #replace with the name of your protein of interest
+stat_res <- data.frame(Variable = character(), n = integer(), Test = character(), P.Val = numeric()) #creating an empty data frame to store the results. 
+i=1
+for(var_name in col_names){
+  #print(var_name)
+  df <- rppa_data %>% dplyr::select(poi, var_name)
+  df <- na.omit(df) #omiting NA values as it is not required for statistical analysis
+  n = nrow(df)
+  if(length(levels(rppa_data[[var_name]])) <=2) {
+          value <- dplyr::pull(df[,poi]) #extracting BCL11A values into a vector
+          var <- dplyr::pull(df[,var_name]) #extracting other variables as required
+          x <- t.test(value ~ var) #t-test
+          pval = x$p.value #extracts and stores the p-value in the results df
+          test = "T-test" #name of the test is also stored in results df
+  }
+  else{
+      value <- dplyr::pull(df[,poi]) #extracting BCL11A values into a vector
+      var <- dplyr::pull(df[,var_name]) #extracting other variables as required
+      atest <- aov(value ~ var) #anova
+      summ <- summary(atest)
+      pval_list = summ[[1]][["Pr(>F)"]]
+      pval = pval_list[1] #extracts and stores the p-value in the results df
+      test = "ANOVA" #name of the test is also stored in results df
+  }
+      stat_res[i,] <- c(var_name, n, test, pval)
+      i=i+1
+      df <- data.frame()
+
+}
+class(stat_res$P.Val) <- "numeric" 
+stat_res$P.Val <- signif(stat_res$P.Val,3) #rounding the P-value to 3 significant digits
+```
+
+Helper function for all boxplots.
+
+```{r}
+# Helper function for boxplot
+box_plot <- function(df, x, y) {
+  #lab = df[i,3]
+  #lab = round(lab, digits=4)
+  ggplot(df, aes(x = !! sym(x), y = !! sym(y), fill = !! sym(x))) + geom_boxplot() + labs(title = paste0(y, " expression across ", x, " groups"), caption = paste0(stat_res$Test[i], ": p-value = ", stat_res$P.Val[i], "\n", "n=", stat_res$n[i])) +   
+    geom_text(data=df %>%
+              group_by(!! sym(x)) %>% 
+              dplyr::summarise(top = max(!! sym(y)), n=dplyr::n()), 
+            aes(x=!! sym(x), y=max(rppa_data[[poi]]), label= paste0("n = ", n)), 
+            nudge_y=1) + 
+    theme(panel.background=element_rect(fill="white"), axis.line.x.bottom=element_line(color="black"), axis.line.y.left=element_line(color="black"))
+}
+```
+
+Main loop through the boxplots
+```{r}
+# Main loop through the columns and dataset
+i=1
+for(var in col_names){
+  print(box_plot(df=rppa_data, x=var, y=poi))
+  i=i+1
+}
+```
+
+Use the below chunk if your plot needs to be altered in some ways to make it more readable. For instance, our RPPA data has a Cytogenetics.Cat.Summary column which when looked with BCL11A, had too many row names making it hard to interpret. This chunk rotates the axis labels, and adjusts the font size and position to fix this. Corresponding statistical variables where also extracted. Likewise, many other plot related issues can be fixed by altering some of the parameters without having to change the other plots.
+
+```{r, fig.width=10}
+ggplot(rppa_data, aes(x = Cytogenetics.Cat.Summary, y = ASNS, fill = Cytogenetics.Cat.Summary)) + geom_boxplot() + labs(title = paste0("ASNS expression across cytogenetic cat summary groups"), caption = paste0(stat_res$Test[17], ": p-value = ", stat_res$P.Val[17], "\n", "n=", stat_res$n[17])) +   
+    geom_text(data=rppa_data %>%
+              group_by(Cytogenetics.Cat.Summary) %>% 
+              dplyr::summarise(top = max(ASNS), n=dplyr::n()), 
+            aes(x=Cytogenetics.Cat.Summary, y=max(rppa_data[[poi]]), label= paste0("n = ", n)), 
+            nudge_y=1) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + theme(panel.background=element_rect(fill="white"), axis.line.x.bottom=element_line(color="black"), axis.line.y.left=element_line(color="black"))
+
+ggplot(rppa_data, aes(x = PseudoFAB, y = ASNS, fill = PseudoFAB)) + geom_boxplot() + labs(title = paste0("ASNS expression across Pseudo FAB groups"), caption = paste0(stat_res$Test[3], ": p-value = ", stat_res$P.Val[3], "\n", "n=", stat_res$n[3])) +   
+    geom_text(data=rppa_data %>%
+              group_by(PseudoFAB) %>% 
+              dplyr::summarise(top = max(ASNS), n=dplyr::n()), 
+            aes(x=PseudoFAB, y=max(rppa_data[[poi]]), label= paste0("n = ", n)), 
+            nudge_y=1) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + theme(panel.background=element_rect(fill="white"), axis.line.x.bottom=element_line(color="black"), axis.line.y.left=element_line(color="black"))
+```
+
+## Scatter plots
+
+```{r, warning=FALSE}
+# Helper function for boxplot
+scatter_plot <- function(df, x, y) {
+  ggplot(df, aes(x = !! sym(x), y = !! sym(y))) + geom_point() + labs(title = paste0("Pearson Correlation: ", y, " - ", x)) +   
+    stat_smooth(method = "lm",
+                formula = y~x,
+                geom = "smooth") +
+    stat_cor(method="pearson") + 
+    theme(panel.background=element_rect(fill="white"), axis.line.x.bottom=element_line(color="black"), axis.line.y.left=element_line(color="black"))
+}
+
+```
+
+```{r, warning = FALSE}
+rppa_data[,c(543,546:566, 568:599)] <- sapply(rppa_data[,c(543,546:566, 568:599)],as.numeric) #convert all the variables of interest to numeric
+# scatter plot call
+i=1
+scat_col_names <- colnames(rppa_data)[c(543,546:566, 567:599)]
+for(var in scat_col_names){
+  print(scatter_plot(df=rppa_data, x=var, y=poi))
+  i=i+1
+}
+```
+
+## Correlation Plots
+
+Pearson's correlation is performed to study the correlation between the protein of interest and all the other proteins. You can either calculate the correlations of all proteins with all proteins or just focus on your protein of interest. Both codes are available, use the one that is needed. The write.table function also helps to export the results.
+
+```{r}
+corr_matrix <- as.matrix(rppa_data[,609:1037]) #extract the protein data into a matrix
+#corr_matrix <- as.matrix(corr_matrix) 
+
+#To look at correlation of all proteins with all proteins 
+#corr_values <- as.data.frame(cor(corr_matrix, method = "pearson"))
+#write.table(corr_values, "All_Protein_Correlation_Values.csv", sep = "\t", row.names = T)
+#Extract protein of interest from the correlation matrix and proceed for further analysis.
+#corr_values_poi <- as.data.frame(corr_values[[poi]])
+#rownames(corr_values_poi) <- rownames(corr_values)
+#corr_values_poi$Protein <- rownames(corr_values_poi)
+#corr_values_poi <- corr_values_poi %>% arrange(corr_values[[poi]]) #replace with the actual column name
+
+#Perform the correlation analysis of the protein of interest directly
+corr_values <- as.data.frame(cor(corr_matrix[,-26], rppa_data[[poi]])) #x is the column number of your protein of interest in the corr_matrix.
+names(corr_values) <- "Correlation_Values"
+corr_values$Protein <- rownames(corr_values)
+corr_values <- corr_values %>% arrange(Correlation_Values)
+write.table(corr_values, "Protein_Correlation_Values.csv", sep = "\t", row.names = T)
+```
+
+This step does the waterfall plot for the most correlated positive and negative proteins with the protein of interest. 
+
+```{r, fig.height, 12, fig.width=16}
+
+pos <- corr_values %>% filter(Correlation_Values>=0) #extract positive correlation values
+neg <- corr_values %>% filter(Correlation_Values<=0) #extract negative correlation values
+pos <- tail(pos,100) #keeps only the top 100 positive correlation proteins
+neg <- head(neg,100) #keeps only the top 100 negative correlation proteins
+
+ggbarplot(pos, x = "Protein", y = "Correlation_Values", fill = "blue") +   
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + labs(title = "Top 100 Positively Correlated Proteins with ASNS")
+
+ggbarplot(neg, x = "Protein", y = "Correlation_Values", fill = "red") +   
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + scale_x_discrete(position = "top") + labs(title = "Top 100 Negatively Correlated Proteins with ASNS")
+```
+
+## Survival Plots
+
+```{r, fig.height=7, fig.width=10}
+rppa_data$status <- ifelse(rppa_data$vital.status=="D", 1, 0) #including a factor column for alive and dead
+rppa_data$vital.status <- factor(rppa_data$vital.status)
+#cumulative incidence curve
+cuminc(Surv(OS.Wks.SMK, vital.status) ~ 1, rppa_data) %>%
+  ggcuminc(outcome = "D") +
+  add_risktable()
+
+rppa_data$poi_median <- ifelse(rppa_data[[poi]]>=median(rppa_data[[poi]]), "Protein Expression > Median", "Protein Expression < Median") # dividing expression by median
+rppa_data$poi_median <- factor(rppa_data$poi_median)
+
+poi_quartile <- quantile(rppa_data[[poi]],probs=c(0.25,0.5,0.75,1))
+poi_tertile <- quantile(rppa_data[[poi]],probs=c(0.333,0.667,1))
+
+rppa_data$poi_quartile<- ifelse(rppa_data[[poi]] <= poi_quartile[1], "Q1",ifelse(poi_quartile[1] < rppa_data[[poi]] & rppa_data[[poi]] <= poi_quartile[2], "Q2", ifelse(poi_quartile[2] < rppa_data[[poi]] & rppa_data[[poi]]<= poi_quartile[3],"Q3", "Q4")))
+
+rppa_data$poi_tertile<- ifelse(rppa_data[[poi]] <= poi_tertile[1], "Q1",ifelse(poi_tertile[1] < rppa_data[[poi]] & rppa_data[[poi]] <= poi_tertile[2], "Q2", "Q3"))
+
+rppa_data$poi_quartile <- factor(rppa_data$poi_quartile)
+rppa_data$poi_tertile  <- factor(rppa_data$poi_tertile)
+
+median_fit <- survfit(Surv(OS.Wks.SMK, status) ~ poi_median, data = rppa_data)
+cox_median <- coxph(Surv(OS.Wks.SMK, status) ~ poi_median, data = rppa_data)
+ggsurvplot(median_fit, data=rppa_data, pval=T, palette = c("blue", "red"),
+           legend.labs = c("Low Expression", "High Expression"), xlab= "Survival Time (Weeks)",
+           pval.coord = c(50,0.05), legend=c(0.75,0.9), legend.title="", title="Survival Probability (ASNS Median expression groups)", conf.int = FALSE,
+           risk.table = TRUE) 
+
+tertile_fit <- survfit(Surv(OS.Wks.SMK, status) ~ poi_tertile, data = rppa_data)
+cox_tertile <- coxph(Surv(OS.Wks.SMK, status) ~ poi_tertile, data = rppa_data)
+ggsurvplot(tertile_fit, data=rppa_data, pval=T, palette = c("blue", "red", "orange"),
+           legend.labs = c("Q1", "Q2", "Q3"), xlab= "Survival Time (Weeks)",
+           pval.coord = c(50,0.05), legend=c(0.75,0.9), legend.title="", title="Survival Probability (ASNS Tertile expression groups)", conf.int = FALSE,
+           risk.table = TRUE) 
+
+quartile_fit <- survfit(Surv(OS.Wks.SMK, status) ~ poi_quartile, data = rppa_data)
+cox_quartile <- coxph(Surv(OS.Wks.SMK, status) ~ poi_quartile, data = rppa_data)
+ggsurvplot(quartile_fit, data=rppa_data, pval=T, palette = c("blue", "red", "orange","magenta"),
+           legend.labs = c("Q1", "Q2", "Q3", "Q4"), xlab= "Survival Time (Weeks)",
+           pval.coord = c(50,0.05), legend=c(0.75,0.9), legend.title="", title="Survival Probability (ASNS Quartile expression groups)", conf.int = FALSE,
+           risk.table = TRUE) 
+
+smoothCoxph(rppa_data$OS.Wks.SMK, rppa_data$status, rppa_data[[poi]], xlab="Protein Expression Levels")
+```
+
+## Multivariate Analysis 
+
+```{r}
+# Multivariate Analysis
+
+rppa_data$Age.Dx <- ifelse(rppa_data$Age.Dx  > 60, "Greater", "Less")
+rppa_data$Age.Dx  <- factor(rppa_data$Age.Dx , levels=c("Less", "Greater"))
+
+
+covariate_names <- c(`Age.Dx:Greater` ="Age > 60", 
+                     Cytogenetics.Risk.Group="Risk Level", 
+                     `poi_median:Protein Expression < Median`="ASNS Low Expression", 
+                     `poi_median:Protein Expression > Median`="ASNS High Expression",
+                     `Cytogenetics.Risk.Group:Intermediate` = "ELN 2017 Intermediate Cytogenetics",
+                     `Cytogenetics.Risk.Group:Unfavorable` = "ELN2017 Adverse Cytogenetics")
+result <- rppa_data %>%
+  analyse_multivariate(vars(OS.Wks.SMK, status==1),
+                       covariates = vars(Age.Dx, Cytogenetics.Risk.Group, poi_median),
+                       covariate_name_dict = covariate_names)
+forest_plot(result,
+            factor_labeller = covariate_names,
+            endpoint_labeller = c(time="OS.Wks.SMK"),
+            orderer = ~order(HR),
+            labels_displayed = c("factor"),
+            ggtheme = ggplot2::theme_bw(base_size = 8),
+            relative_widths = c(1, 1.5, 1),
+            HR_x_breaks = c(0.25, 0.5, 0.75, 1, 1.5, 2))
+
+covariate_names <- c(`Age.Dx:Greater` ="Age > 60", 
+                     Cytogenetics.Risk.Group="Risk Level", 
+                     `poi_quartile:Q1`="ASNS Q1", 
+                     `poi_quartile:Q2`="ASNS Q2",
+                     `poi_quartile:Q3`="ASNS Q3",
+                     `poi_quartile:Q4`="ASNS Q4",
+                     `Cytogenetics.Risk.Group:Intermediate` = "ELN 2017 Intermediate Cytogenetics",
+                     `Cytogenetics.Risk.Group:Unfavorable` = "ELN2017 Adverse Cytogenetics")
+
+result <- rppa_data %>%
+  analyse_multivariate(vars(OS.Wks.SMK, status==1),
+                       covariates = vars(Age.Dx, Cytogenetics.Risk.Group, poi_quartile),
+                       covariate_name_dict = covariate_names)
+forest_plot(result,
+            factor_labeller = covariate_names,
+            endpoint_labeller = c(time="OS.Wks.SMK"),
+            orderer = ~order(HR),
+            labels_displayed = c("factor"),
+            ggtheme = ggplot2::theme_bw(base_size = 8),
+            relative_widths = c(1, 1.5, 1),
+            HR_x_breaks = c(0.25, 0.5, 0.75, 1, 1.5, 2))
+
+covariate_names <- c(`Age.Dx:Greater` ="Age > 60", 
+                     Cytogenetics.Risk.Group="Risk Level", 
+                     `poi_tertile:Q1`="ASNS Tertile Q1", 
+                     `poi_tertile:Q2`="ASNS Tertile Q2",
+                     `poi_tertile:Q3`="ASNS Tertile Q3",
+                     `Cytogenetics.Risk.Group:Intermediate` = "ELN 2017 Intermediate Cytogenetics",
+                     `Cytogenetics.Risk.Group:Unfavorable` = "ELN2017 Adverse Cytogenetics")
+
+result <- rppa_data %>%
+  analyse_multivariate(vars(OS.Wks.SMK, status==1),
+                       covariates = vars(Age.Dx, Cytogenetics.Risk.Group, poi_tertile),
+                       covariate_name_dict = covariate_names)
+forest_plot(result,
+            factor_labeller = covariate_names,
+            endpoint_labeller = c(time="OS.Wks.SMK"),
+            orderer = ~order(HR),
+            labels_displayed = c("factor"),
+            ggtheme = ggplot2::theme_bw(base_size = 8),
+            relative_widths = c(1, 1.5, 1),
+            HR_x_breaks = c(0.25, 0.5, 0.75, 1, 1.5, 2))
+```
