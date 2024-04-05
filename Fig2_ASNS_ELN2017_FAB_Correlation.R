@@ -2,7 +2,7 @@ library(ggplot2)
 library(rstatix)
 library(RColorBrewer)
 library(colorspace)
-rppa_data <- read.table("/Users/nnarayanan/Library/CloudStorage/OneDrive-InsideMDAnderson/NishaNarayanan/ASNS/Code/Data/RPPA_Data.csv", sep = "\t")
+rppa_data <- read.table("RPPA_Data.csv", sep = "\t")
 rppa_data$Cytogenetics.Risk.Group <- factor(rppa_data$Cytogenetics.Risk.Group, c("Favorable", "Intermediate", "Adverse"))
 rppa_data$FAB <- rppa_data$PseudoFAB
 rppa_data$FAB <- gsub("M4e", "M4", rppa_data$FAB)
@@ -52,7 +52,7 @@ results_list[["FAB"]]$y.position[31] = 6.3
 
 
 color_pal <- c("#5D8CA8", "#D5695D", "lightpink", "cornflowerblue", "#F15C80", "khaki","#6C71C4", "#FC8D62", "orchid","tan", "#C24841", "lightgray")
-pdf("/Users/nnarayanan/Library/CloudStorage/OneDrive-InsideMDAnderson/NishaNarayanan/ASNS/Figures/Figure 2b.pdf", width=8)
+pdf("Figure 2b.pdf", width=8)
 ggpubr::ggboxplot(subset(rppa_data, !is.na(FAB)), x = "FAB", y = "ASNS", fill = "FAB",  ylim = c(-2,8)) +
   scale_fill_manual(values = color_pal) +
   ggpubr::stat_pvalue_manual(results_list[["FAB"]], label = "p.adj.signif", hide.ns=T) +
@@ -68,7 +68,7 @@ ggpubr::ggboxplot(subset(rppa_data, !is.na(FAB)), x = "FAB", y = "ASNS", fill = 
   ylab("Log2 Normalized ASNS Expression") + theme(legend.position = "none")
 dev.off()
 
-pdf("/Users/nnarayanan/Library/CloudStorage/OneDrive-InsideMDAnderson/NishaNarayanan/ASNS/Figures/Figure 2d.pdf", width=8)
+pdf("Figure 2d.pdf", width=8)
 ggpubr::ggboxplot(subset(rppa_data, !is.na(Cytogenetics.Risk.Group)), x = "Cytogenetics.Risk.Group", y = "ASNS",  fill = "Cytogenetics.Risk.Group", ylim = c(-2,8)) +
   scale_fill_manual(values = color_pal) +
   ggpubr::stat_pvalue_manual(results_list[["Cytogenetics.Risk.Group"]], label = "p.adj.signif", hide.ns=F) +
@@ -82,7 +82,7 @@ ggpubr::ggboxplot(subset(rppa_data, !is.na(Cytogenetics.Risk.Group)), x = "Cytog
   scale_x_discrete(limits = c("Favorable", "Intermediate", "Adverse")) +
   ylab("Log2 Normalized ASNS Expression") + theme(legend.position = "none")
 dev.off()
-pdf("/Users/nnarayanan/Library/CloudStorage/OneDrive-InsideMDAnderson/NishaNarayanan/ASNS/Figures/Figure S1b.pdf", width=8)
+pdf("Figure S1b.pdf", width=8)
 ggpubr::ggboxplot(subset(rppa_data, !is.na(Cytogenetics.Cat.Summary)), x = "Cytogenetics.Cat.Summary", y = "ASNS",  fill = "Cytogenetics.Cat.Summary", ylim = c(-2,8)) +
   scale_fill_manual(values = color_pal) +
   ggpubr::stat_pvalue_manual(results_list[["Cytogenetics.Cat.Summary"]], label = "p.adj.signif", hide.ns=T) +
