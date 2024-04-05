@@ -54,7 +54,7 @@ library(survivalAnalysis)
 Load the data into the R environment. Accessing the excel sheet through the read_excel function in the readxl library.
 
 ```{r data}
-rppa_data <- read_excel("/Users/nnarayanan/Library/CloudStorage/OneDrive-InsideMDAnderson/Data/RPPA/AML_A3_Patient-n810_Protein-n429_Data.xlsx") #Replace path to file with the actual path to the file in your machine
+rppa_data <- read_excel("AML_A3_Patient-n810_Protein-n429_Data.xlsx") #Replace path to file with the actual path to the file in your machine
 ```
 
 ## Data cleaning
