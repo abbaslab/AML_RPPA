@@ -1,7 +1,7 @@
 library(corrplot)
 library(dplyr)
 library(ggpubr)
-rppa_data <- read.table("/Users/nnarayanan/Library/CloudStorage/OneDrive-InsideMDAnderson/NishaNarayanan/ASNS/Code/Data/RPPA_Data.csv", sep = "\t")
+rppa_data <- read.table("RPPA_Data.csv", sep = "\t")
 corr_matrix <- as.matrix(rppa_data[,609:1037]) #extract the protein data into a matrix
 source("http://www.sthda.com/upload/rquery_cormat.r")
 cormat <- rquery.cormat(corr_matrix, type="full", graph=FALSE)
@@ -29,7 +29,7 @@ corrmatrix_plot$Protein <- rownames(corrmatrix_plot)
 corrmatrix_plot$corr <- factor(corrmatrix_plot$corr, levels=c("Positive", "Negative"))
 write.table(corrmatrix_plot, "/Users/nnarayanan/Library/CloudStorage/OneDrive-InsideMDAnderson/NishaNarayanan/ASNS/Code/Figure 4/Correlations_Significant_ASNS.txt", sep = "\t")
 
-pdf("/Users/nnarayanan/Library/CloudStorage/OneDrive-InsideMDAnderson/NishaNarayanan/ASNS/Figures/Figure 3a.pdf", width = 14)
+pdf("Figure 3a.pdf", width = 14)
 ggbarplot(corrmatrix_plot, x = "Protein", y = "Correlation", fill = "corr", color = NA, palette = c("red3", "steelblue4")) +  
   xlab("") +
   ylab("Pearson Correlation with ASNS") +
