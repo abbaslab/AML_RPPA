@@ -1,6 +1,6 @@
 library(ggplot2)
 library(rstatix)
-rppa_data <- read.table("/Users/nnarayanan/Library/CloudStorage/OneDrive-InsideMDAnderson/NishaNarayanan/ASNS/Code/Data/RPPA_Data.csv", sep = "\t")
+rppa_data <- read.table("RPPA_Data.csv", sep = "\t")
 rppa_data$X...7.7q <- ifelse(rppa_data$X...7.7q=="Y", "-7/7q", "No -7/7q")
 rppa_data$X...7.7q <- factor(rppa_data$X...7.7q, levels = c("-7/7q", "No -7/7q"))
 rppa_data$ch7del <- ifelse(rppa_data$Cytogenetics.Cat.Summary %in% c("-5/5q-", "11q23", "COMPLEX", "DIPLOID", "inv16", "Misc", "t(6;9)", "t(8;21)", "t(9;11)", "trisomy8"), "Other", ifelse(rppa_data$Cytogenetics.Cat.Summary == "-7/7q-", "-7/7q-", NA))
@@ -34,7 +34,7 @@ for(var_name in c("X...7.7q", "ch7del", "del7complex")){
   results_list[[var_name]] <- stat.test
 }
 #results_list[["del7complex"]]$y.position[2] = 5
-pdf("/Users/nnarayanan/Library/CloudStorage/OneDrive-InsideMDAnderson/NishaNarayanan/ASNS/Figures/Figure 2e.pdf", width=8)
+pdf("Figure 2e.pdf", width=8)
 ggpubr::ggboxplot(subset(rppa_data, !is.na(X...7.7q)), x = "X...7.7q", y = "ASNS", 
                         fill = "X...7.7q",  ylim = c(-3,8)) +
         scale_fill_manual(labels = c("-7/7q", "No -7/7q"),values = c("#5D8CA8", "#D5695D", "lightpink")) +
@@ -50,7 +50,7 @@ ggpubr::ggboxplot(subset(rppa_data, !is.na(X...7.7q)), x = "X...7.7q", y = "ASNS
   ylab("Log2 Normalized ASNS Expression") +theme(legend.position = "none")
 dev.off()
 
-pdf("/Users/nnarayanan/Library/CloudStorage/OneDrive-InsideMDAnderson/NishaNarayanan/ASNS/Figures/Figure 2f.pdf", width=8)
+pdf("Figure 2f.pdf", width=8)
 ggpubr::ggboxplot(subset(rppa_data, !is.na(del7complex)), x = "del7complex", y = "ASNS",  fill = "del7complex",  ylim = c(-2,8)) +
   scale_fill_manual(labels = c("Isolated -7/7q", "CK with -7/7q", "CK without -7/7q", "Other"),values = c("#5D8CA8", "#D5695D", "lightpink")) +
   ggpubr::stat_pvalue_manual(results_list[["del7complex"]], label = "p.adj.signif", hide.ns=T) +
