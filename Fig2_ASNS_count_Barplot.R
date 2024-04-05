@@ -3,7 +3,7 @@ library(dplyr)
 library(reshape2)
 library(tidyr)
 library(ggpubr)
-rppa_data <- read.table("/Users/nnarayanan/Library/CloudStorage/OneDrive-InsideMDAnderson/NishaNarayanan/ASNS/Code/Data/RPPA_Data.csv", sep = "\t")
+rppa_data <- read.table("RPPA_Data.csv", sep = "\t")
 rppa_data$Cytogenetics.Risk.Group <- factor(rppa_data$Cytogenetics.Risk.Group, c("Favorable", "Intermediate", "Adverse"))
 rppa_data$FAB <- rppa_data$PseudoFAB
 rppa_data$FAB <- gsub("M4e", "M4", rppa_data$FAB)
@@ -40,7 +40,7 @@ bar_data <- unique(bar_data)
 bar_data_cyto <- unique(bar_data_cyto)
 bar_data_7 <- unique(bar_data_7)
 bar_data_7$X...7.7q <- ifelse(bar_data_7$X...7.7q == "N", "Absent", "Present")
-pdf("/Users/nnarayanan/Library/CloudStorage/OneDrive-InsideMDAnderson/NishaNarayanan/ASNS/Figures/Figure 2a.pdf")
+pdf("Figure 2a.pdf")
 ggplot(bar_data_fab, aes(x = FAB, y = count_name_occurr, fill = poi_median )) +
   geom_bar(position = "fill", stat = "identity") +
   scale_y_continuous(labels = scales::percent) +
@@ -53,7 +53,7 @@ ggplot(bar_data_fab, aes(x = FAB, y = count_name_occurr, fill = poi_median )) +
   labs(fill = "ASNS Expression Groups", caption = paste0("p = ",round(chi_fab_poi$p.value,3))) +
   theme_classic()
 dev.off()
-pdf("/Users/nnarayanan/Library/CloudStorage/OneDrive-InsideMDAnderson/NishaNarayanan/ASNS/Figures/Figure 2c.pdf")
+pdf("Figure 2c.pdf")
 ggplot(bar_data, aes(x = Cytogenetics.Risk.Group, y = count_name_occurr,fill=poi_median)) +
   geom_bar(width=0.5,position = "fill", stat = "identity") +
   scale_y_continuous(labels = scales::percent) +
@@ -64,7 +64,7 @@ ggplot(bar_data, aes(x = Cytogenetics.Risk.Group, y = count_name_occurr,fill=poi
   geom_text(aes(label = count_name_occurr), position = position_fill(vjust = 0.6)) +
   theme_classic()
 dev.off()
-pdf("/Users/nnarayanan/Library/CloudStorage/OneDrive-InsideMDAnderson/NishaNarayanan/ASNS/Figures/Figure S1a.pdf")
+pdf("Figure S1a.pdf")
 ggplot(bar_data_cyto, aes(x = Cytogenetics.Cat.Summary, y = count_name_occurr, fill=poi_median)) +
   geom_bar(position = "fill", stat = "identity") +
   scale_y_continuous(labels = scales::percent) +
@@ -76,7 +76,7 @@ ggplot(bar_data_cyto, aes(x = Cytogenetics.Cat.Summary, y = count_name_occurr, f
   geom_text(aes(label = count_name_occurr), position = position_fill(vjust = 0.6)) +
   theme_classic()
 dev.off()
-pdf("/Users/nnarayanan/Library/CloudStorage/OneDrive-InsideMDAnderson/NishaNarayanan/ASNS/Figures/Figure S1c.pdf")
+pdf("Figure S1c.pdf")
 ggplot(bar_data_7, aes(x = X...7.7q, y = count_name_occurr,fill=poi_median)) +
   geom_bar(width=0.3,position = "fill", stat = "identity") +
   scale_y_continuous(labels = scales::percent) +
